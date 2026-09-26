@@ -1,5 +1,6 @@
 ﻿import { nanoid } from 'nanoid';
 import Experiment from './experiment.model.js';
+import Trial from '../trials/trial.model.js';
 
 export const createExperiment = async (researcherId, { title, description, instructions }) => {
   const experiment = await Experiment.create({
@@ -32,7 +33,14 @@ export const updateExperiment = async (researcherId, experimentId, updateData) =
     error.statusCode = 400;
     throw error;
   }
-  Object.assign(experiment, updateData);
+  const allowedFields = ['title', 'description', 'instructions'];
+  const safeUpdate = Object.fromEntries(Object.entries(updateData).filter(([key]) => allowedFields.includes(key)));
+  if (safeUpdate.title !== undefined && !String(safeUpdate.title).trim()) {
+    const error = new Error('Experiment title cannot be empty');
+    error.statusCode = 400;
+    throw error;
+  }
+  Object.assign(experiment, safeUpdate);
   await experiment.save();
   return experiment;
 };
@@ -42,6 +50,12 @@ export const publishExperiment = async (researcherId, experimentId) => {
   if (experiment.status === 'PUBLISHED') {
     return experiment;
   }
+  const trialCount = await Trial.countDocuments({ experiment: experimentId });
+  if (trialCount === 0) {
+    const error = new Error('Add at least one trial before publishing');
+    error.statusCode = 400;
+    throw error;
+  }
   experiment.status = 'PUBLISHED';
   experiment.publicId = nanoid(8);
   experiment.publishedAt = new Date();
@@ -50,7 +64,7 @@ export const publishExperiment = async (researcherId, experimentId) => {
 };
 
 export const getPublicExperiment = async (publicId) => {
-  const experiment = await Experiment.findOne({ publicId, status: 'PUBLISHED' });
+  const experiment = await Experiment.findOne({ publicId, status: 'PUBLISHED' }).select('title description instructions status publicId');
   if (!experiment) {
     const error = new Error('Published experiment not found or link has expired');
     error.statusCode = 404;

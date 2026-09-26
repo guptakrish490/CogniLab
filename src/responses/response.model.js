@@ -20,6 +20,10 @@ const responseSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    enhancedReactionTimeMs: {
+      type: Number,
+      default: null,
+    },
     correct: {
       type: Boolean,
       default: null,

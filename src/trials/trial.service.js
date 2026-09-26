@@ -8,8 +8,8 @@ export const createTrial = async (researcherId, experimentId, trialData) => {
     error.statusCode = 404;
     throw error;
   }
-  if (experiment.status === 'CLOSED') {
-    const error = new Error('Cannot add trials to a closed experiment');
+  if (experiment.status !== 'DRAFT') {
+    const error = new Error('Trials can only be changed while an experiment is a draft');
     error.statusCode = 400;
     throw error;
   }
@@ -41,6 +41,11 @@ export const updateTrial = async (researcherId, trialId, updateData) => {
     error.statusCode = 403;
     throw error;
   }
+  if (experiment.status !== 'DRAFT') {
+    const error = new Error('Published experiment trials cannot be changed');
+    error.statusCode = 409;
+    throw error;
+  }
   Object.assign(trial, updateData);
   await trial.save();
   return trial;
@@ -57,6 +62,11 @@ export const deleteTrial = async (researcherId, trialId) => {
   if (!experiment) {
     const error = new Error('Not authorized to delete this trial');
     error.statusCode = 403;
+    throw error;
+  }
+  if (experiment.status !== 'DRAFT') {
+    const error = new Error('Published experiment trials cannot be changed');
+    error.statusCode = 409;
     throw error;
   }
   await trial.deleteOne();

@@ -1,52 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, LockKeyhole } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const { login, loading } = useAuth();
-  const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    const res = await login(email, password);
-    if (res.success) {
-      navigate('/dashboard');
-    } else {
-      setError(res.message);
-    }
-  };
-
-  return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC', fontFamily: 'Inter, sans-serif' }}>
-      <div style={{ width: '100%', maxWidth: '400px', backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '32px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0' }}>
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#0F172A', margin: 0 }}>CogniLab</h2>
-          <p style={{ fontSize: '14px', color: '#64748B', marginTop: '6px' }}>Researcher Sign In</p>
-        </div>
-        {error && <div style={{ backgroundColor: '#FEF2F2', color: '#991B1B', padding: '10px', borderRadius: '6px', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>Email Address</label>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="researcher@university.edu" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #CBD5E1', marginTop: '4px', boxSizing: 'border-box' }} />
- </div>
- <div>
- <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>Password</label>
- <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #CBD5E1', marginTop: '4px', boxSizing: 'border-box' }} />
- </div>
- <button type="submit" disabled={loading} style={{ backgroundColor: '#2563EB', color: '#FFFFFF', padding: '12px', borderRadius: '6px', border: 'none', fontWeight: '600', cursor: 'pointer' }}>
- {loading ? 'Signing in...' : 'Sign In'}
- </button>
- </form>
- <p style={{ textAlign: 'center', fontSize: '13px', color: '#64748B', marginTop: '20px' }}>
- Don't have a researcher account? <Link to="/register" style={{ color: '#2563EB', fontWeight: '600' }}>Register here</Link>
- </p>
- </div>
- </div>
- );
-};
-
-export default Login;
+export default function Login() {
+  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [error, setError] = useState(''); const { login, loading } = useAuth(); const navigate = useNavigate();
+  const submit = async (e) => { e.preventDefault(); setError(''); const result = await login(email, password); if (result.success) navigate('/dashboard'); else setError(result.message); };
+  return <div className="auth-page"><div className="auth-visual"><div className="brand"><span className="brand-mark">C</span> CogniLab</div><div className="auth-quote"><span className="eyebrow">Research operations</span><h1>Make every response count.</h1><p>Build precise browser-based studies and understand the quality behind every measurement.</p></div><div className="auth-foot">Timing-aware research, built for the web.</div></div><main className="auth-panel"><div className="auth-form"><div className="auth-mobile-brand brand"><span className="brand-mark">C</span> CogniLab</div><span className="eyebrow">Researcher access</span><h2>Welcome back</h2><p className="muted">Sign in to manage your experiments.</p>{error && <div className="error">{error}</div>}<form onSubmit={submit}><div className="field"><label>Email address</label><input autoFocus required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@lab.org" /></div><div className="field"><label>Password</label><input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" /></div><button className="btn btn-primary auth-submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign in'} {!loading && <ArrowRight size={16} />}</button></form><p className="auth-switch">New to CogniLab? <Link to="/register">Create a researcher account</Link></p><div className="auth-note"><LockKeyhole size={15} /> Your workspace is protected with secure authentication.</div></div></main></div>;
+}

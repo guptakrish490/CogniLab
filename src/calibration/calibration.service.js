@@ -43,3 +43,11 @@
 
   return { score, summary, flags };
 };
+
+// Explicit interpretation metric; raw reaction time remains unchanged.
+export const calculateEnhancedReactionTime = (reactionTimeMs, reliabilityScore) => {
+  const raw = Number(reactionTimeMs);
+  if (!Number.isFinite(raw)) return null;
+  const score = Number.isFinite(Number(reliabilityScore)) ? Number(reliabilityScore) : 70;
+  return Math.round((raw + ((100 - Math.max(0, Math.min(100, score))) * 0.5)) * 100) / 100;
+};
