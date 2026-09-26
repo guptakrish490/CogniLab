@@ -1,6 +1,7 @@
 import Experiment from '../experiments/experiment.model.js';
 import ParticipantSession from '../participants/participant.model.js';
 import Response from '../responses/response.model.js';
+import Trial from '../trials/trial.model.js';
 
 export const getExperimentResults = async (researcherId, experimentId) => {
   const experiment = await Experiment.findOne({ _id: experimentId, researcher: researcherId });
@@ -9,7 +10,7 @@ export const getExperimentResults = async (researcherId, experimentId) => {
     error.statusCode = 404;
     throw error;
   }
-  const sessions = await ParticipantSession.find({ experiment: experimentId, status: 'COMPLETED' });
+  const sessions = await ParticipantSession.find({ experiment: experimentId });
   const totalParticipants = sessions.length;
   if (totalParticipants === 0) {
     return {
@@ -25,9 +26,10 @@ export const getExperimentResults = async (researcherId, experimentId) => {
     };
   }
   const sessionIds = sessions.map((s) => s._id);
-  const allResponses = await Response.find({ participantSession: { $in: sessionIds } }).populate('trial');
-  const validRts = allResponses.map((r) => r.reactionTimeMs);
-  const enhancedRts = allResponses.map((r) => r.enhancedReactionTimeMs ?? r.reactionTimeMs);
+  const allResponses = await Response.find({ participantSession: { $in: sessionIds } }).populate({ path: 'trial', model: Trial });
+  const rawTime = (response) => Number(response.reactionTimeMs ?? response.reactionTime);
+  const validRts = allResponses.map(rawTime).filter(Number.isFinite);
+  const enhancedRts = allResponses.map((r) => Number(r.enhancedReactionTimeMs ?? rawTime(r))).filter(Number.isFinite);
   const avgReactionTimeMs = validRts.length ? Math.round(validRts.reduce((a, b) => a + b, 0) / validRts.length) : 0;
   const avgEnhancedReactionTimeMs = enhancedRts.length ? Math.round(enhancedRts.reduce((a, b) => a + b, 0) / enhancedRts.length) : 0;
   const correctResponses = allResponses.filter((r) => r.correct === true).length;
@@ -48,8 +50,8 @@ export const getExperimentResults = async (researcherId, experimentId) => {
     trialMap.get(key).responses.push(response);
   });
   const trialResults = [...trialMap.values()].sort((a, b) => a.trialOrder - b.trialOrder).map((trial) => {
-    const raw = trial.responses.map((response) => response.reactionTimeMs);
-    const enhanced = trial.responses.map((response) => response.enhancedReactionTimeMs ?? response.reactionTimeMs);
+    const raw = trial.responses.map(rawTime).filter(Number.isFinite);
+    const enhanced = trial.responses.map((response) => Number(response.enhancedReactionTimeMs ?? rawTime(response))).filter(Number.isFinite);
     const correct = trial.responses.filter((response) => response.correct === true).length;
     return {
       trialId: trial.trialId,
@@ -57,12 +59,12 @@ export const getExperimentResults = async (researcherId, experimentId) => {
       stimulusType: trial.stimulusType,
       stimulus: trial.stimulus,
       expectedResponse: trial.expectedResponse,
-      responseCount: raw.length,
-      avgReactionTimeMs: Math.round(raw.reduce((sum, value) => sum + value, 0) / raw.length),
-      avgEnhancedReactionTimeMs: Math.round(enhanced.reduce((sum, value) => sum + value, 0) / enhanced.length),
-      accuracyPercentage: Math.round((correct / raw.length) * 100),
+      responseCount: trial.responses.length,
+      avgReactionTimeMs: raw.length ? Math.round(raw.reduce((sum, value) => sum + value, 0) / raw.length) : null,
+      avgEnhancedReactionTimeMs: enhanced.length ? Math.round(enhanced.reduce((sum, value) => sum + value, 0) / enhanced.length) : null,
       rawReactionTimesMs: raw,
       enhancedReactionTimesMs: enhanced,
+      accuracyPercentage: raw.length ? Math.round((correct / raw.length) * 100) : 0,
     };
   });
   return {
@@ -75,20 +77,31 @@ export const getExperimentResults = async (researcherId, experimentId) => {
       reliabilityDistribution,
     },
     sessions: sessions.map((s) => {
-      const sessionResponses = allResponses.filter((r) => String(r.participantSession) === String(s._id));
-      const rawSessionRts = sessionResponses.map((r) => r.reactionTimeMs);
-      const enhancedSessionRts = sessionResponses.map((r) => r.enhancedReactionTimeMs ?? r.reactionTimeMs);
+      const sessionResponses = allResponses.filter((r) => String(r.participantSession?._id || r.participantSession) === String(s._id));
+      const rawSessionRts = sessionResponses.map(rawTime).filter(Number.isFinite);
+      const enhancedSessionRts = sessionResponses.map((r) => Number(r.enhancedReactionTimeMs ?? rawTime(r))).filter(Number.isFinite);
       return {
       id: s._id,
       anonymousCode: s.anonymousCode,
+      status: s.status,
       reliabilityScore: s.reliabilityScore,
       reliabilitySummary: s.reliabilitySummary,
       reliabilityFlags: s.reliabilityFlags,
       isLowReliability: s.reliabilityScore !== null && s.reliabilityScore < 65,
       startedAt: s.startedAt,
       completedAt: s.completedAt,
-      avgReactionTimeMs: rawSessionRts.length ? Math.round(rawSessionRts.reduce((a, b) => a + b, 0) / rawSessionRts.length) : 0,
-      avgEnhancedReactionTimeMs: enhancedSessionRts.length ? Math.round(enhancedSessionRts.reduce((a, b) => a + b, 0) / enhancedSessionRts.length) : 0,
+      avgReactionTimeMs: rawSessionRts.length ? Math.round(rawSessionRts.reduce((a, b) => a + b, 0) / rawSessionRts.length) : null,
+      avgEnhancedReactionTimeMs: enhancedSessionRts.length ? Math.round(enhancedSessionRts.reduce((a, b) => a + b, 0) / enhancedSessionRts.length) : null,
+      responseCount: sessionResponses.length,
+      responses: sessionResponses.map((response) => ({
+        id: response._id,
+        trialOrder: response.trial?.trialOrder,
+        response: response.response,
+        correct: response.correct,
+        reactionTimeMs: rawTime(response),
+        enhancedReactionTimeMs: Number(response.enhancedReactionTimeMs ?? rawTime(response)),
+        createdAt: response.createdAt,
+      })),
       };
     }),
     trialResults,
@@ -111,6 +124,17 @@ export const getSessionDetail = async (researcherId, experimentId, sessionId) =>
   const responses = await Response.find({ participantSession: sessionId }).populate('trial');
   return {
     session,
-    responses,
+    responses: responses.map((response) => ({
+      id: response._id,
+      trialId: response.trial?._id,
+      trialOrder: response.trial?.trialOrder,
+      response: response.response,
+      correct: response.correct,
+      reactionTimeMs: Number(response.reactionTimeMs ?? response.reactionTime),
+      enhancedReactionTimeMs: Number(response.enhancedReactionTimeMs ?? response.reactionTimeMs ?? response.reactionTime),
+      stimulusTimestamp: response.stimulusTimestamp,
+      responseTimestamp: response.responseTimestamp,
+      createdAt: response.createdAt,
+    })),
   };
 };

@@ -130,6 +130,26 @@ const ParticipantRunner = () => {
     runTrialSequence(0);
   };
 
+  const playFeedbackTone = (correct) => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const context = new AudioContext();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = correct ? 'sine' : 'square';
+      oscillator.frequency.value = correct ? 660 : 145;
+      gain.gain.setValueAtTime(0.0001, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(correct ? 0.04 : 0.08, context.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + (correct ? 0.08 : 0.16));
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + (correct ? 0.08 : 0.16));
+      oscillator.addEventListener('ended', () => context.close());
+    } catch {
+      // Audio feedback is optional when the browser blocks Web Audio.
+    }
+  };
+
   const runTrialSequence = () => {
     setShowingStimulus(false);
     setCountdown(true);
@@ -142,7 +162,15 @@ const ParticipantRunner = () => {
   };
 
   const handleKeyPress = async (e) => {
-    if (step !== 'EXPERIMENT' || !showingStimulus) return;
+    if (step !== 'EXPERIMENT') return;
+    if (!showingStimulus) {
+      if (countdown) {
+        setActionError('Wait for the target to appear before responding.');
+        playFeedbackTone(false);
+        window.setTimeout(() => setActionError(''), 900);
+      }
+      return;
+    }
 
     setShowingStimulus(false);
     setActionError('');
@@ -152,7 +180,9 @@ const ParticipantRunner = () => {
     const key = e.key.toUpperCase() === ' ' ? 'SPACE' : e.key.toUpperCase();
 
     const currentTrial = trials[currentTrialIdx];
-    setLastResponse({ key, rt, correct: String(key).toLowerCase() === String(currentTrial.expectedResponse || '').toLowerCase() });
+    const correct = String(key).toLowerCase() === String(currentTrial.expectedResponse || '').toLowerCase();
+    setLastResponse({ key, rt, correct, expected: currentTrial.expectedResponse || 'SPACE' });
+    playFeedbackTone(correct);
 
     try {
       await api.post('/sessions/' + session._id + '/responses', {
@@ -173,6 +203,13 @@ const ParticipantRunner = () => {
       setActionError('We could not save this response. Please try again.');
       setShowingStimulus(true);
     }
+  };
+
+  const handleWrongClick = () => {
+    if (step !== 'EXPERIMENT') return;
+    setActionError(showingStimulus ? 'Mouse clicks are not recorded. Use the response key.' : 'Wait for the target to appear before responding.');
+    playFeedbackTone(false);
+    window.setTimeout(() => setActionError(''), 900);
   };
 
   const finishExperiment = async () => {
@@ -239,7 +276,7 @@ const ParticipantRunner = () => {
       )}
 
       {step === 'EXPERIMENT' && (
-        <div style={styles.experimentArea}>
+        <div style={styles.experimentArea} onMouseDown={handleWrongClick}>
           {actionError && <div style={{ ...styles.card, position: 'absolute', bottom: 24, maxWidth: 420, padding: 16, color: '#fecaca' }}>{actionError}</div>}
           <div style={styles.trialCounter}>
             <span>TRIAL {String(currentTrialIdx + 1).padStart(2, '0')} / {String(trials.length).padStart(2, '0')}</span>
@@ -262,7 +299,7 @@ const ParticipantRunner = () => {
           ) : (
             <div style={styles.fixationCross}>+</div>
           )}
-          {!countdown && !showingStimulus && lastResponse && <div style={styles.feedback}>{lastResponse.correct ? 'Correct' : 'Response recorded'} · {lastResponse.rt} ms</div>}
+          {!countdown && !showingStimulus && lastResponse && <div style={{ ...styles.feedback, color: lastResponse.correct ? '#86EFAC' : '#FCA5A5' }}>{lastResponse.correct ? `Correct · ${lastResponse.rt} ms` : `Incorrect · ${lastResponse.key} pressed · expected ${lastResponse.expected}`}</div>}
         </div>
       )}
 
@@ -410,7 +447,7 @@ const styles = {
   },
   readyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', color: '#CBD5E1' },
   readyPulse: { fontSize: '70px', lineHeight: 1, color: '#64748B' },
-  feedback: { position: 'absolute', bottom: '34px', color: '#86EFAC', fontSize: '14px', fontWeight: '700' },
+  feedback: { position: 'absolute', bottom: '34px', fontSize: '14px', fontWeight: '700' },
   calibrationProgress: { display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'stretch', color: '#CBD5E1' },
   calibrationProgressTrack: { height: '6px', backgroundColor: '#334155', borderRadius: '5px', overflow: 'hidden' },
   calibrationProgressFill: { height: '100%', backgroundColor: '#38BDF8', borderRadius: '5px', transition: 'width .2s ease' },
