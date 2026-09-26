@@ -21,7 +21,6 @@ const ParticipantRunner = () => {
   const [calibrationPhase, setCalibrationPhase] = useState('frames');
   const [calibrationProgress, setCalibrationProgress] = useState(0);
 
-  const containerRef = useRef(null);
   const trialTimerRef = useRef(null);
   const calibrationCleanupRef = useRef(null);
 
@@ -230,7 +229,7 @@ const ParticipantRunner = () => {
   if (loading) return <div style={styles.page}>Loading experiment...</div>;
 
   return (
-    <div style={styles.page} ref={containerRef}>
+    <div style={styles.page}>
       {step === 'INSTRUCTIONS' && (
         <div style={styles.card}>
           <h2 style={styles.title}>{experiment.title}</h2>

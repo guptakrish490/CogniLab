@@ -26,11 +26,6 @@ api.interceptors.response.use(
   },
 );
 
-export const authAPI = {
-  login: (data) => api.post('/auth/login', data),
-  register: (data) => api.post('/auth/register', data),
-};
-
 export const experimentAPI = {
   create: (data) => api.post('/experiments', data),
   getAll: () => api.get('/experiments'),
@@ -40,23 +35,11 @@ export const experimentAPI = {
   getByPublicId: (publicId) => api.get('/experiments/public/' + publicId),
 };
 
-export const trialAPI = {
-  create: (expId, data) => api.post('/experiments/' + expId + '/trials', data),
-  getByExperiment: (expId) => api.get('/experiments/' + expId + '/trials'),
-  update: (expId, trialId, data) => api.patch('/experiments/' + expId + '/trials/' + trialId, data),
-  delete: (expId, trialId) => api.delete('/experiments/' + expId + '/trials/' + trialId),
-};
-
 export const sessionAPI = {
   start: (publicId) => api.post('/sessions/start/' + publicId),
   submitCalibration: (sessionId, data) => api.post('/sessions/' + sessionId + '/calibration', data),
   submitResponse: (sessionId, data) => api.post('/sessions/' + sessionId + '/responses', data),
   complete: (sessionId) => api.post('/sessions/' + sessionId + '/complete'),
-};
-
-export const resultAPI = {
-  getExperimentResults: (expId) => api.get('/experiments/' + expId + '/results'),
-  getSessionResult: (expId, sessionId) => api.get('/experiments/' + expId + '/results/' + sessionId),
 };
 
 export default api;
